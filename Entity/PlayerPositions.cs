@@ -4,19 +4,19 @@ namespace tcpServer
 {
     public static class PlayerPositions
     {
-        public static byte[] playerPositions = new byte[] { 1 };
-        public static void AddToPlayerPositions(byte[] buffer, int ConnectedClients)
+        public static byte[] Positions = new byte[] { 1 };
+        public static void AddToPositions(byte[] buffer, int Connections)
         {
-            if (playerPositions.Length < ConnectedClients * 2)
+            if (Positions.Length < Connections * 2)
             {
-                    int lastplayerPosLength = playerPositions.Length;
-                    Array.Resize(ref playerPositions, ConnectedClients * 2 + 1);
-                    playerPositions[lastplayerPosLength-2] = buffer[0];
-                    playerPositions[lastplayerPosLength - 1] = buffer[1];
+                    int PrevLen = Positions.Length;
+                    Array.Resize(ref Positions, Connections * 2 + 1);
+                    Positions[PrevLen-2] = buffer[0];
+                    Positions[PrevLen - 1] = buffer[1];
             }
             else
             {
-                Array.Resize(ref playerPositions, ConnectedClients * 2+1);
+                Array.Resize(ref Positions, Connections * 2+1);
             }
         }
     }

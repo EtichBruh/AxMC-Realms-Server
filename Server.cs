@@ -1,6 +1,7 @@
 ﻿using Extensions;
 using System;
 using System.Net;
+using System.Net.Http;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +55,7 @@ namespace tcpServer
                 // socket must be cleared since the context object is being reused
                 acceptEventArg.AcceptSocket = null;
             }
-            //bool willRaiseEvent = listenSocket.AcceptAsync(acceptEventArg);
+            //bool willRaiseEvent = listenSocket.AcceptAsync(acceptEventArg); 
             if (!listenSocket.AcceptAsync(acceptEventArg))
             {
                 OnAccept(acceptEventArg);
@@ -64,6 +65,7 @@ namespace tcpServer
         private void AcceptEventArg_Completed(object sender, SocketAsyncEventArgs e)
         {
             Console.WriteLine("Client Connected");
+            new HttpClient().GetAsync("https://sus.7hemech.repl.co/join");
             m_numConnectedSockets++;
             OnAccept(e);
         }
@@ -92,9 +94,9 @@ namespace tcpServer
 
             ReadWrite.UserToken = new Player(e.AcceptSocket) { ConnectedId = m_numConnectedSockets - 1 };
             Player.Players[m_numConnectedSockets - 1] = ReadWrite.UserToken as Player;
-            if(m_numConnectedSockets > 1)
+            if (m_numConnectedSockets > 1)
             {
-                ReadWrite.SetBuffer(new byte[] { 0, (byte)m_numConnectedSockets },0,2);
+                ReadWrite.SetBuffer(new byte[] { 0, (byte)m_numConnectedSockets }, 0, 2);
                 foreach (Player p in Player.Players) if (p is not null) (ReadWrite.UserToken as Player).Sock.SendAsync(ReadWrite);
             }
             ReadWrite.SetBuffer(emptyArray, 0, emptyArray.Length);
@@ -128,7 +130,7 @@ namespace tcpServer
                         {
                             if (Player.Players[i] is null) continue;
                             if (Player.Players[i].ConnectedId == ((Player)e.UserToken).ConnectedId) { skipped++; continue; }
-                            Array.Copy(Player.Players[i].PositionAsByte(), 0, positionspack, (i - skipped) * 4, 4);
+                            Array.Copy(Player.Players[i].PositionByte(), 0, positionspack, (i - skipped) * 4, 4);
                         }
                         pack.SetData(positionspack);
                         pack.SetHeader(PacketId.Position);
@@ -187,10 +189,12 @@ namespace tcpServer
             {
                 Player.Players[m_numConnectedSockets] = null;
             }*/
-                if (m_numConnectedSockets > 1)
+            if (m_numConnectedSockets > 1)
             {
-                foreach (Player p in Player.Players)if( p is not null)p.Sock.Send(new byte[] { 0, (byte)m_numConnectedSockets });
+                foreach (Player p in Player.Players) if (p is not null) p.Sock.Send(new byte[] { 0, (byte)m_numConnectedSockets });
             }
+            new HttpClient().GetAsync("https://sus.7hemech.repl.co/leave");
+
             Console.WriteLine("A client has been disconnected from the server. There are {0} clients connected to the server", m_numConnectedSockets);
         }
         private async ValueTask<bool> Read(SocketAsyncEventArgs e, int numBytes)

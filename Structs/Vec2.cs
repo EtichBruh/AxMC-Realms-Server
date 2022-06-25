@@ -3,9 +3,9 @@
     public struct Vec2
     {
         private static byte[] empty = { 0, 0,0,0 };
-        public short X;
-        public short Y;
-        public Vec2(short x, short y)
+        public ushort X;
+        public ushort Y;
+        public Vec2(ushort x, ushort y)
         {
             X = x;
             Y = y;

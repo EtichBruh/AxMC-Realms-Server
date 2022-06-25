@@ -9,11 +9,12 @@ namespace tcpServer.Entity
         public static Player[] Players;
         public Vec2 Position;
         public int ConnectedId;
+
         public Player(Socket s)
         {
             Sock = s;
         }
-        public byte[] PositionAsByte()
+        public byte[] PositionByte()
         {
             return Position.ToByte();
         }

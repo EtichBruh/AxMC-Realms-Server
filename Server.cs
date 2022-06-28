@@ -69,9 +69,7 @@ namespace tcpServer
             m_numConnectedSockets++;
             OnAccept(e);
         }
-        // This method is called whenever a receive or send operation is completed on a socket
-        //
-        // <param name="e">SocketAsyncEventArg associated with the completed receive operation</param>
+
         void IO_Completed(object sender, SocketAsyncEventArgs e)
         {
             // determine which type of operation just completed and call the associated handler
@@ -90,7 +88,6 @@ namespace tcpServer
         void OnAccept(SocketAsyncEventArgs e)
         {
             SocketAsyncEventArgs ReadWrite = new();
-            //ReadWrite.AcceptSocket = e.AcceptSocket;
 
             ReadWrite.UserToken = new Player(e.AcceptSocket) { ConnectedId = m_numConnectedSockets - 1 };
             Player.Players[m_numConnectedSockets - 1] = ReadWrite.UserToken as Player;
@@ -111,8 +108,6 @@ namespace tcpServer
         {
             if (e.BytesTransferred > 0 && e.SocketError == SocketError.Success)
             {
-                //increment the count of the total bytes receive by the server
-                //Interlocked.Add(ref m_totalBytesRead, e.BytesTransferred);
                 Console.WriteLine("The server has read {0} bytes", e.BytesTransferred);
                 //process data
                 e.SetBuffer(e.Offset, e.BytesTransferred);
@@ -173,7 +168,6 @@ namespace tcpServer
         }
         private void CloseClientSocket(SocketAsyncEventArgs e)
         {
-
             // close the socket associated with the client
             try
             {
@@ -184,15 +178,8 @@ namespace tcpServer
             (e.UserToken as Player).Sock.Close();
             e.Dispose();
             m_numConnectedSockets--;
-            /*if (Player.Players[m_numConnectedSockets + 1] is not null)
-            {
-                Player.Players[m_numConnectedSockets] = Player.Players[m_numConnectedSockets + 1];
-            }
-            else
-            {
-                Player.Players[m_numConnectedSockets] = null;
-            }*/
-            if (m_numConnectedSockets > 1)
+
+            if (m_numConnectedSockets >= 0)
             {
                 foreach (Player p in Player.Players) if (p is not null) p.Sock.Send(new byte[] { 0, (byte)m_numConnectedSockets });
             }

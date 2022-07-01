@@ -1,5 +1,6 @@
 ﻿using Extensions;
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
@@ -11,20 +12,20 @@ namespace tcpServer
 {
     class Server
     {
-        private int maxConnections;
+        private int maxconnects;
         private static byte[] emptyArray = Array.Empty<byte>();
         private int receivebuffSize;
         const int opsToPreAlloc = 2;    // read, write (don't alloc buffer space for accepts)
         Socket listenSocket;            // the socket used to listen for incoming connection requests
         int m_totalBytesRead;           // counter of the total # bytes received by the server
-        int m_numConnectedSockets;      // the total number of clients connected to the server
+        int numconnects;      // the total number of clients connected to the server
         public Server(int numConnections, int receiveBufferSize)
         {
             m_totalBytesRead = 0;
             Array.Resize<byte>(ref emptyArray, receiveBufferSize);
-            m_numConnectedSockets = 0;
-            maxConnections = numConnections;
-            Array.Resize<Player>(ref Player.Players, maxConnections);
+            numconnects = 0;
+            maxconnects = numConnections;
+            Array.Resize<Player>(ref Player.Players, maxconnects);
             receivebuffSize = receiveBufferSize;
         }
 
@@ -34,7 +35,7 @@ namespace tcpServer
             listenSocket = new(localEndPoint.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
             listenSocket.Bind(localEndPoint);
             // start the server with a listen backlog of 100 connections
-            listenSocket.Listen(maxConnections);
+            listenSocket.Listen(maxconnects);
 
             // post accepts on the listening socket
             StartAccept(null);
@@ -66,7 +67,7 @@ namespace tcpServer
         {
             Console.WriteLine("Client Connected");
             new HttpClient().GetAsync("https://sus.7hemech.repl.co/join");
-            m_numConnectedSockets++;
+            numconnects++;
             OnAccept(e);
         }
 
@@ -89,11 +90,11 @@ namespace tcpServer
         {
             SocketAsyncEventArgs ReadWrite = new();
 
-            ReadWrite.UserToken = new Player(e.AcceptSocket) { ConnectedId = m_numConnectedSockets - 1 };
-            Player.Players[m_numConnectedSockets - 1] = ReadWrite.UserToken as Player;
-            if (m_numConnectedSockets > 1)
+            ReadWrite.UserToken = new Player(e.AcceptSocket) { ConnectedId = numconnects - 1 };
+            Player.Players[numconnects - 1] = ReadWrite.UserToken as Player;
+            if (numconnects > 1)
             {
-                ReadWrite.SetBuffer(new byte[] { 0, (byte)m_numConnectedSockets });
+                ReadWrite.SetBuffer(new byte[] { 0, (byte)numconnects });
                 foreach (Player p in Player.Players) if (p is not null) p.Sock.SendAsync(ReadWrite);
             }
             ReadWrite.SetBuffer(emptyArray, 0, emptyArray.Length);
@@ -112,36 +113,49 @@ namespace tcpServer
                 //process data
                 e.SetBuffer(e.Offset, e.BytesTransferred);
                 int pid = (e.UserToken as Player).ConnectedId;
+                if(e.BytesTransferred > 5)
+                {
+                    Console.WriteLine(e.Buffer.ToString());
+                }
                 if (e.Buffer[0] == 1)
                 {
                     Packet pack = new(e.Buffer);
-                    (e.UserToken as Player).Position = pack.ReadDataAfterHeader().ToVec2();
+                    (e.UserToken as Player).Position = pack.ReadAfterHeader().ToVec2();
                     Console.WriteLine($"Player id {pid} pos X:{(e.UserToken as Player).Position.X} Y: {(e.UserToken as Player).Position.Y}");
-                    if (m_numConnectedSockets > 1)
+                    if (numconnects > 1)
                     {
-                        byte[] positionspack = emptyArray;
-                        Array.Resize<byte>(ref positionspack, (m_numConnectedSockets - 1) * 4);
+                        byte[] positionspack = new byte[0];// = new byte[(m_numConnectedSockets - 1) * 4];
+                        List<byte> poses = new();
                         int skipped = 0;
-                        for (int i = 0; i < m_numConnectedSockets; i++)
+                        for (int i = 0; i < numconnects; i++)
                         {
                             if (Player.Players[i] is null) continue;
-                            if (Player.Players[i].ConnectedId == pid) { skipped++; continue; }
-                            Array.Copy(Player.Players[i].PositionByte(), 0, positionspack, (i - skipped) * 4, 4);
+                            //if (Player.Players[i].ConnectedId == pid) { continue; }
+                            for(int j = 0; j < numconnects; j++)
+                            {
+                                if (Player.Players[i].ConnectedId != Player.Players[j].ConnectedId)
+                                {
+                                    poses.AddRange(Player.Players[i].PositionByte());
+                                }
+                                positionspack = poses.ToArray();
+                                pack.SetData(positionspack);
+                                pack.SetHeader(PacketId.Position);
+                                Player.Players[j].Sock.Send(pack.ReadData());
+                                poses.Clear();
+                            }
+                            //Array.Copy(Player.Players[i].PositionByte(), 0, positionspack, (i - skipped) * 4, 4);
                         }
-                        pack.SetData(positionspack);
-                        pack.SetHeader(PacketId.Position);
-                        e.SetBuffer(pack.ReadData(),0, pack.Count);
+                        e.SetBuffer(positionspack, 0, positionspack.Length);
                         foreach (Player p in Player.Players)
                         {
                             if (p is null) continue;
                             if (p.ConnectedId == pid)
                                 continue;
-                            p.Sock.Send(e.Buffer);
+                            p.Sock.Send(pack.ReadData());
                             Console.WriteLine($"Server sent pos {pid} to {p.ConnectedId}");
                         }
                     }
                 }
-                //e.SetBuffer(emptyArray, 0, emptyArray.Length);
                 if (!(e.UserToken as Player).Sock.SendAsync(e))
                 {
                     OnSend(e);
@@ -156,6 +170,7 @@ namespace tcpServer
         {
             if (e.SocketError == SocketError.Success)
             {
+                e.SetBuffer(emptyArray, 0, emptyArray.Length);
                 if (!(e.UserToken as Player).Sock.ReceiveAsync(e))
                 {
                     OnReceive(e);
@@ -177,15 +192,15 @@ namespace tcpServer
             catch (Exception) { }
             (e.UserToken as Player).Sock.Close();
             e.Dispose();
-            m_numConnectedSockets--;
+            numconnects--;
 
-            if (m_numConnectedSockets >= 0)
+            if (numconnects >= 0)
             {
-                foreach (Player p in Player.Players) if (p is not null) p.Sock.Send(new byte[] { 0, (byte)m_numConnectedSockets });
+                foreach (Player p in Player.Players) if (p is not null) p.Sock.Send(new byte[] { 0, (byte)numconnects });
             }
             new HttpClient().GetAsync("https://sus.7hemech.repl.co/leave");
 
-            Console.WriteLine("A client has been disconnected from the server. There are {0} clients connected to the server", m_numConnectedSockets);
+            Console.WriteLine("A client has been disconnected from the server. There are {0} clients connected to the server", numconnects);
         }
     }
 }

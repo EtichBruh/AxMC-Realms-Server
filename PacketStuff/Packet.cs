@@ -17,10 +17,9 @@ namespace tcpServer
         {
             return (PacketId)buffer[0];
         }
-        public byte[] ReadDataAfterHeader()
+        public byte[] ReadAfterHeader()
         {
-            byte[] Data = Array.Empty<byte>();
-            Array.Resize(ref Data, buffer.Length - 1);
+            byte[] Data = new byte[buffer.Length -1];
             Array.Copy(buffer, 1, Data, 0, Data.Length);
             return Data;
         }
@@ -32,7 +31,7 @@ namespace tcpServer
         public void SetHeader(PacketId pId)
         {
             byte[] Data = buffer;
-            Array.Resize(ref buffer, buffer.Length + 5);
+            Array.Resize(ref buffer, buffer.Length + 1);
             Array.Copy(Data, 0, buffer, 1, Data.Length);
             buffer[0] = (byte)pId;
         }
